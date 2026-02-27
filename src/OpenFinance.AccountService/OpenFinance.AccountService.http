@@ -1,0 +1,6 @@
+@OpenFinance.AccountService_HostAddress = http://localhost:5215
+
+GET {{OpenFinance.AccountService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

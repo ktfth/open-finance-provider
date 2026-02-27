@@ -1,0 +1,45 @@
+## .NET
+bin/
+obj/
+publish/
+
+## User-specific
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+## NuGet
+**/[Pp]ackages/*
+*.nupkg
+.nuget/
+**/packages.lock.json
+
+## VS / VS Code
+.vs/
+.vscode/
+*.code-workspace
+launchSettings.json
+
+## Rider
+.idea/
+
+## OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+## Docker
+**/docker-compose.override.yml
+
+## Environment / Secrets
+*.env
+appsettings.*.local.json

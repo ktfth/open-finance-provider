@@ -1,0 +1,6 @@
+@OpenFinance.ConsentService_HostAddress = http://localhost:5173
+
+GET {{OpenFinance.ConsentService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,517 @@
+{
+  "info": {
+    "name": "OpenFinance Provider",
+    "description": "Collection para validação dos microserviços do provedor de Open Finance.\n\nFluxo sugerido:\n1. **Consent** → Criar → Autorizar (via Authorise) → Validar\n2. **Account** → Listar contas → Detalhe → Saldo → Transações\n3. **Payment** → Iniciar pagamento → Consultar status → Cancelar",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [],
+  "item": [
+    {
+      "name": "Consent Service",
+      "description": "Gerenciamento de consentimentos. Base: {{consent_service_url}}",
+      "item": [
+        {
+          "name": "Criar Consentimento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.environment.set('consent_id', body.consentId);",
+                  "    pm.test('Consentimento criado com status Pending', () => {",
+                  "        pm.expect(body.status).to.eql('Pending');",
+                  "        pm.expect(body.consentId).to.be.a('string');",
+                  "    });",
+                  "    console.log('consent_id salvo:', body.consentId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"userId\": \"{{user_id}}\",\n  \"permissions\": [\"ACCOUNTS_READ\", \"TRANSACTIONS_READ\", \"BALANCES_READ\"],\n  \"expiresAt\": \"{{$isoTimestamp}}\",\n  \"redirectUri\": \"https://bank-app.example.com/callback\"\n}"
+            },
+            "url": {
+              "raw": "{{consent_service_url}}/open-finance/v1/consents",
+              "host": ["{{consent_service_url}}"],
+              "path": ["open-finance", "v1", "consents"]
+            },
+            "description": "Cria um novo consentimento no status Pending.\n\nO `consent_id` é salvo automaticamente na variável de ambiente após criação bem-sucedida."
+          }
+        },
+        {
+          "name": "Buscar Consentimento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Possui consentId', () => pm.expect(body.consentId).to.be.a('string'));",
+                  "    pm.test('Possui status', () => pm.expect(body.status).to.be.oneOf(['Pending','Authorised','Revoked','Rejected','Expired']));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{consent_service_url}}/open-finance/v1/consents/{{consent_id}}",
+              "host": ["{{consent_service_url}}"],
+              "path": ["open-finance", "v1", "consents", "{{consent_id}}"]
+            },
+            "description": "Busca um consentimento pelo ID.\n\nPré-requisito: executar 'Criar Consentimento' para popular {{consent_id}}."
+          }
+        },
+        {
+          "name": "Validar Consentimento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Retorna isValid boolean', () => pm.expect(body.isValid).to.be.a('boolean'));",
+                  "console.log('Consentimento válido:', body.isValid);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{consent_service_url}}/open-finance/v1/consents/{{consent_id}}/validate?permissions=ACCOUNTS_READ&permissions=TRANSACTIONS_READ",
+              "host": ["{{consent_service_url}}"],
+              "path": ["open-finance", "v1", "consents", "{{consent_id}}", "validate"],
+              "query": [
+                { "key": "permissions", "value": "ACCOUNTS_READ" },
+                { "key": "permissions", "value": "TRANSACTIONS_READ" }
+              ]
+            },
+            "description": "Valida se o consentimento está ativo e possui as permissões solicitadas.\n\nRetorna `{ \"isValid\": true|false }`."
+          }
+        },
+        {
+          "name": "Revogar Consentimento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 (revogado) ou 400/404', () => {",
+                  "    pm.expect([204, 400, 404]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Solicitação do cliente\"\n}"
+            },
+            "url": {
+              "raw": "{{consent_service_url}}/open-finance/v1/consents/{{consent_id}}",
+              "host": ["{{consent_service_url}}"],
+              "path": ["open-finance", "v1", "consents", "{{consent_id}}"]
+            },
+            "description": "Revoga o consentimento. Retorna 204 em caso de sucesso."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Account Service",
+      "description": "Acesso a dados de contas. Requer header `x-consent-id`.\n\nBase: {{account_service_url}}",
+      "item": [
+        {
+          "name": "Listar Contas do Usuário",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Retorna lista de contas', () => pm.expect(body.accounts).to.be.an('array'));",
+                  "if (body.accounts.length > 0) {",
+                  "    pm.environment.set('account_id', body.accounts[0].accountId);",
+                  "    console.log('account_id salvo:', body.accounts[0].accountId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-consent-id", "value": "{{consent_id}}" }
+            ],
+            "url": {
+              "raw": "{{account_service_url}}/open-finance/v1/accounts?userId={{user_id}}",
+              "host": ["{{account_service_url}}"],
+              "path": ["open-finance", "v1", "accounts"],
+              "query": [
+                { "key": "userId", "value": "{{user_id}}" }
+              ]
+            },
+            "description": "Lista todas as contas ativas do usuário.\n\nSalva automaticamente o primeiro `account_id` na variável de ambiente."
+          }
+        },
+        {
+          "name": "Detalhe da Conta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Possui dados do titular', () => pm.expect(body.ownerName).to.be.a('string'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-consent-id", "value": "{{consent_id}}" }
+            ],
+            "url": {
+              "raw": "{{account_service_url}}/open-finance/v1/accounts/{{account_id}}",
+              "host": ["{{account_service_url}}"],
+              "path": ["open-finance", "v1", "accounts", "{{account_id}}"]
+            },
+            "description": "Retorna dados detalhados da conta: número, agência, CPF do titular."
+          }
+        },
+        {
+          "name": "Saldo da Conta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Possui saldo disponível', () => pm.expect(body.availableBalance).to.be.a('number'));",
+                  "    pm.test('Possui saldo bloqueado', () => pm.expect(body.blockedBalance).to.be.a('number'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-consent-id", "value": "{{consent_id}}" }
+            ],
+            "url": {
+              "raw": "{{account_service_url}}/open-finance/v1/accounts/{{account_id}}/balance",
+              "host": ["{{account_service_url}}"],
+              "path": ["open-finance", "v1", "accounts", "{{account_id}}", "balance"]
+            },
+            "description": "Retorna saldo disponível e bloqueado da conta."
+          }
+        },
+        {
+          "name": "Transações da Conta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 400', () => {",
+                  "    pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Retorna lista de transações', () => pm.expect(body.transactions).to.be.an('array'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-consent-id", "value": "{{consent_id}}" }
+            ],
+            "url": {
+              "raw": "{{account_service_url}}/open-finance/v1/accounts/{{account_id}}/transactions?from=2026-01-01&to=2026-02-24",
+              "host": ["{{account_service_url}}"],
+              "path": ["open-finance", "v1", "accounts", "{{account_id}}", "transactions"],
+              "query": [
+                { "key": "from", "value": "2026-01-01" },
+                { "key": "to", "value": "2026-02-24" }
+              ]
+            },
+            "description": "Lista transações no período informado. Formato de data: `yyyy-MM-dd`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Service",
+      "description": "Iniciação de pagamentos. Base: {{payment_service_url}}",
+      "item": [
+        {
+          "name": "Iniciar Pagamento PIX",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.environment.set('payment_id', body.paymentId);",
+                  "    pm.test('Pagamento criado com status Pending', () => {",
+                  "        pm.expect(body.status).to.eql('Pending');",
+                  "        pm.expect(body.paymentId).to.be.a('string');",
+                  "    });",
+                  "    console.log('payment_id salvo:', body.paymentId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"consentId\": \"{{consent_id}}\",\n  \"debtorAccountId\": \"{{account_id}}\",\n  \"creditorAccountId\": \"ACC-CREDITOR-002\",\n  \"creditorName\": \"Jane Doe\",\n  \"creditorCpfCnpj\": \"987.654.321-00\",\n  \"amount\": 150.00,\n  \"currency\": \"BRL\",\n  \"description\": \"Pagamento de aluguel\",\n  \"type\": \"Pix\"\n}"
+            },
+            "url": {
+              "raw": "{{payment_service_url}}/open-finance/v1/payments",
+              "host": ["{{payment_service_url}}"],
+              "path": ["open-finance", "v1", "payments"]
+            },
+            "description": "Inicia um pagamento PIX.\n\nPré-requisito: `consent_id` e `account_id` populados.\n\nO `payment_id` é salvo automaticamente após criação bem-sucedida."
+          }
+        },
+        {
+          "name": "Consultar Status do Pagamento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Possui status válido', () => {",
+                  "        pm.expect(body.status).to.be.oneOf(['Pending','Processing','Completed','Failed','Cancelled']);",
+                  "    });",
+                  "    pm.test('Possui amount', () => pm.expect(body.amount).to.be.a('number'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{payment_service_url}}/open-finance/v1/payments/{{payment_id}}",
+              "host": ["{{payment_service_url}}"],
+              "path": ["open-finance", "v1", "payments", "{{payment_id}}"]
+            },
+            "description": "Consulta o status atual de um pagamento."
+          }
+        },
+        {
+          "name": "Cancelar Pagamento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 (cancelado) ou 400/404', () => {",
+                  "    pm.expect([204, 400, 404]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Transação duplicada\"\n}"
+            },
+            "url": {
+              "raw": "{{payment_service_url}}/open-finance/v1/payments/{{payment_id}}",
+              "host": ["{{payment_service_url}}"],
+              "path": ["open-finance", "v1", "payments", "{{payment_id}}"]
+            },
+            "description": "Cancela um pagamento Pending ou Processing. Retorna 204 em caso de sucesso."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fluxo Completo (Runner)",
+      "description": "Execute esta pasta no Collection Runner para validar o fluxo ponta-a-ponta:\nCriar Consentimento → Listar Contas → Iniciar Pagamento → Consultar Status.",
+      "item": [
+        {
+          "name": "1. Criar Consentimento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[Fluxo] Consentimento criado', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('consent_id', body.consentId);",
+                  "pm.test('[Fluxo] Status é Pending', () => pm.expect(body.status).to.eql('Pending'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"userId\": \"{{user_id}}\",\n  \"permissions\": [\"ACCOUNTS_READ\", \"TRANSACTIONS_READ\", \"BALANCES_READ\"],\n  \"expiresAt\": \"2026-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "{{consent_service_url}}/open-finance/v1/consents",
+              "host": ["{{consent_service_url}}"],
+              "path": ["open-finance", "v1", "consents"]
+            }
+          }
+        },
+        {
+          "name": "2. Listar Contas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[Fluxo] Contas retornadas', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('[Fluxo] Array de contas', () => pm.expect(body.accounts).to.be.an('array'));",
+                  "if (body.accounts.length > 0) {",
+                  "    pm.environment.set('account_id', body.accounts[0].accountId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{account_service_url}}/open-finance/v1/accounts?userId={{user_id}}",
+              "host": ["{{account_service_url}}"],
+              "path": ["open-finance", "v1", "accounts"],
+              "query": [{ "key": "userId", "value": "{{user_id}}" }]
+            }
+          }
+        },
+        {
+          "name": "3. Iniciar Pagamento PIX",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[Fluxo] Pagamento iniciado', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('payment_id', body.paymentId);",
+                  "pm.test('[Fluxo] Status Pending', () => pm.expect(body.status).to.eql('Pending'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"consentId\": \"{{consent_id}}\",\n  \"debtorAccountId\": \"{{account_id}}\",\n  \"creditorAccountId\": \"ACC-CREDITOR-999\",\n  \"creditorName\": \"Fornecedor SA\",\n  \"creditorCpfCnpj\": \"00.000.000/0001-00\",\n  \"amount\": 250.00,\n  \"currency\": \"BRL\",\n  \"description\": \"Pagamento de serviço\",\n  \"type\": \"Pix\"\n}"
+            },
+            "url": {
+              "raw": "{{payment_service_url}}/open-finance/v1/payments",
+              "host": ["{{payment_service_url}}"],
+              "path": ["open-finance", "v1", "payments"]
+            }
+          }
+        },
+        {
+          "name": "4. Consultar Status do Pagamento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[Fluxo] Status do pagamento retornado', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('[Fluxo] Payment ID correto', () => {",
+                  "    pm.expect(body.paymentId).to.eql(pm.environment.get('payment_id'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{payment_service_url}}/open-finance/v1/payments/{{payment_id}}",
+              "host": ["{{payment_service_url}}"],
+              "path": ["open-finance", "v1", "payments", "{{payment_id}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
