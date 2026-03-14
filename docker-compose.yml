@@ -54,5 +54,31 @@ services:
       sqlserver:
         condition: service_healthy
 
+  credit-card-service:
+    build:
+      context: .
+      dockerfile: src/OpenFinance.CreditCardService/Dockerfile
+    environment:
+      ConnectionStrings__CardDb: "Server=sqlserver;Database=OpenFinanceCreditCard;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5004:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  investment-service:
+    build:
+      context: .
+      dockerfile: src/OpenFinance.InvestmentService/Dockerfile
+    environment:
+      ConnectionStrings__InvestmentDb: "Server=sqlserver;Database=OpenFinanceInvestment;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5005:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
 volumes:
   sqldata:
