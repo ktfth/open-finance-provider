@@ -2,6 +2,8 @@
   <Folder Name="/src/">
     <Project Path="src/OpenFinance.AccountService/OpenFinance.AccountService.csproj" />
     <Project Path="src/OpenFinance.ConsentService/OpenFinance.ConsentService.csproj" />
+    <Project Path="src/OpenFinance.CreditCardService/OpenFinance.CreditCardService.csproj" />
+    <Project Path="src/OpenFinance.InvestmentService/OpenFinance.InvestmentService.csproj" />
     <Project Path="src/OpenFinance.PaymentService/OpenFinance.PaymentService.csproj" />
     <Project Path="src/OpenFinance.Shared/OpenFinance.Shared.csproj" />
   </Folder>
@@ -9,6 +11,8 @@
     <Project Path="tests/OpenFinance.AccountService.Tests/OpenFinance.AccountService.Tests.csproj" />
     <Project Path="tests/OpenFinance.BDD.Tests/OpenFinance.BDD.Tests.csproj" />
     <Project Path="tests/OpenFinance.ConsentService.Tests/OpenFinance.ConsentService.Tests.csproj" />
+    <Project Path="tests/OpenFinance.CreditCardService.Tests/OpenFinance.CreditCardService.Tests.csproj" />
+    <Project Path="tests/OpenFinance.InvestmentService.Tests/OpenFinance.InvestmentService.Tests.csproj" />
     <Project Path="tests/OpenFinance.PaymentService.Tests/OpenFinance.PaymentService.Tests.csproj" />
   </Folder>
 </Solution>

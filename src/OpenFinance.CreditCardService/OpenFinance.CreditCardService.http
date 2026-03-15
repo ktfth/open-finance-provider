@@ -1,0 +1,40 @@
+@CreditCardService_HostAddress = http://localhost:5004
+@consentId = 00000000-0000-0000-0000-000000000001
+@userId = user-123
+@cardAccountId = {{card_account_id}}
+@billId = {{bill_id}}
+
+### List credit card accounts for a user
+GET {{CreditCardService_HostAddress}}/open-finance/v1/credit-cards-accounts?userId={{userId}}
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get credit card account details
+GET {{CreditCardService_HostAddress}}/open-finance/v1/credit-cards-accounts/{{cardAccountId}}
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get credit limits for a card account
+GET {{CreditCardService_HostAddress}}/open-finance/v1/credit-cards-accounts/{{cardAccountId}}/limits
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get card bills (faturas)
+GET {{CreditCardService_HostAddress}}/open-finance/v1/credit-cards-accounts/{{cardAccountId}}/bills
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get transactions for a specific bill
+GET {{CreditCardService_HostAddress}}/open-finance/v1/credit-cards-accounts/{{cardAccountId}}/bills/{{billId}}/transactions
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###

@@ -1,0 +1,87 @@
+@InvestmentService_HostAddress = http://localhost:5005
+@consentId = 00000000-0000-0000-0000-000000000001
+@userId = user-123
+@investmentId = {{investment_id}}
+
+### ─── Fixed Income (Renda Fixa) ─────────────────────────────────────────────
+
+### List all fixed income positions
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/fixed-incomes?userId={{userId}}
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get fixed income investment details
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/fixed-incomes/{{investmentId}}
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get fixed income balance (marked-to-market)
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/fixed-incomes/{{investmentId}}/balances
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get fixed income transactions (date range)
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/fixed-incomes/{{investmentId}}/transactions?from=2024-01-01&to=2026-12-31
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### ─── Variable Income (Renda Variável) ──────────────────────────────────────
+
+### List all variable income positions
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/variable-incomes?userId={{userId}}
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get variable income details (with IR calculation)
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/variable-incomes/{{investmentId}}
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get variable income balance
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/variable-incomes/{{investmentId}}/balances
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get variable income transactions
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/variable-incomes/{{investmentId}}/transactions?from=2024-01-01&to=2026-12-31
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### ─── Treasury Bonds (Tesouro Direto) ───────────────────────────────────────
+
+### List all Tesouro Direto positions
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/treasure-titles?userId={{userId}}
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get treasury bond details (with regressive IR table)
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/treasure-titles/{{investmentId}}
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###
+
+### Get treasury bond balance
+GET {{InvestmentService_HostAddress}}/open-finance/v1/investments/treasure-titles/{{investmentId}}/balances
+x-consent-id: {{consentId}}
+Accept: application/json
+
+###

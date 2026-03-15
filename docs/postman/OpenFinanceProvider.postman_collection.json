@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "OpenFinance Provider",
-    "description": "Collection para validação dos microserviços do provedor de Open Finance.\n\nFluxo sugerido:\n1. **Consent** → Criar → Autorizar (via Authorise) → Validar\n2. **Account** → Listar contas → Detalhe → Saldo → Transações\n3. **Payment** → Iniciar pagamento → Consultar status → Cancelar",
+    "description": "Collection para validação dos microserviços do provedor de Open Finance Brasil.\n\nServiços disponíveis:\n- **Consent Service** (porta 5001) — Gerenciamento de consentimentos\n- **Account Service** (porta 5002) — Contas correntes, poupança e pré-paga\n- **Payment Service** (porta 5003) — Pagamentos PIX, TED e DOC\n- **Credit Card Service** (porta 5004) — Cartões de crédito, limites e faturas\n- **Investment Service** (porta 5005) — Renda Fixa, Renda Variável e Tesouro Direto\n\nFluxo sugerido:\n1. **Consent** → Criar → Autorizar → Validar\n2. **Account** → Listar → Detalhe → Saldo → Transações\n3. **Payment** → Iniciar → Consultar → Cancelar\n4. **Credit Card** → Listar cartões → Limites → Faturas → Transações da fatura\n5. **Investment** → Listar posições → Detalhe → Saldo → Movimentações",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [],
@@ -388,6 +388,510 @@
               "path": ["open-finance", "v1", "payments", "{{payment_id}}"]
             },
             "description": "Cancela um pagamento Pending ou Processing. Retorna 204 em caso de sucesso."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Credit Card Service",
+      "description": "Acesso a dados de cartão de crédito. Requer header `x-consent-id`.\n\nBase: {{credit_card_service_url}}\n\nPermissões necessárias:\n- CREDIT_CARDS_ACCOUNTS_READ\n- CREDIT_CARDS_ACCOUNTS_LIMITS_READ\n- CREDIT_CARDS_ACCOUNTS_BILLS_READ\n- CREDIT_CARDS_ACCOUNTS_BILLS_TRANSACTIONS_READ",
+      "item": [
+        {
+          "name": "Listar Cartões de Crédito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Retorna lista de cartões', () => pm.expect(body.cardAccounts).to.be.an('array'));",
+                  "if (body.cardAccounts.length > 0) {",
+                  "    pm.environment.set('card_account_id', body.cardAccounts[0].cardAccountId);",
+                  "    console.log('card_account_id salvo:', body.cardAccounts[0].cardAccountId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-consent-id", "value": "{{consent_id}}" }
+            ],
+            "url": {
+              "raw": "{{credit_card_service_url}}/open-finance/v1/credit-cards-accounts?userId={{user_id}}",
+              "host": ["{{credit_card_service_url}}"],
+              "path": ["open-finance", "v1", "credit-cards-accounts"],
+              "query": [{ "key": "userId", "value": "{{user_id}}" }]
+            },
+            "description": "Lista cartões de crédito ativos do usuário. Retorna últimos 4 dígitos, bandeira e nome do titular."
+          }
+        },
+        {
+          "name": "Detalhe do Cartão",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Possui últimos 4 dígitos', () => pm.expect(body.lastFourDigits).to.match(/^\\d{4}$/));",
+                  "    pm.test('Possui nome do titular', () => pm.expect(body.holderName).to.be.a('string'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-consent-id", "value": "{{consent_id}}" }
+            ],
+            "url": {
+              "raw": "{{credit_card_service_url}}/open-finance/v1/credit-cards-accounts/{{card_account_id}}",
+              "host": ["{{credit_card_service_url}}"],
+              "path": ["open-finance", "v1", "credit-cards-accounts", "{{card_account_id}}"]
+            },
+            "description": "Dados completos do cartão: bandeira, rede, titular, CPF, dia de vencimento."
+          }
+        },
+        {
+          "name": "Limites do Cartão",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Possui limites', () => pm.expect(body.limits).to.be.an('array'));",
+                  "    body.limits.forEach(l => {",
+                  "        pm.test('Valor disponível = total - usado', () => {",
+                  "            pm.expect(l.availableAmountTotal).to.be.closeTo(l.limitAmountTotal - l.usedAmountTotal, 0.01);",
+                  "        });",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-consent-id", "value": "{{consent_id}}" }
+            ],
+            "url": {
+              "raw": "{{credit_card_service_url}}/open-finance/v1/credit-cards-accounts/{{card_account_id}}/limits",
+              "host": ["{{credit_card_service_url}}"],
+              "path": ["open-finance", "v1", "credit-cards-accounts", "{{card_account_id}}", "limits"]
+            },
+            "description": "Linhas de limite: total, nacional, internacional. Cada linha mostra total, usado e disponível."
+          }
+        },
+        {
+          "name": "Faturas do Cartão",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Retorna lista de faturas', () => pm.expect(body.bills).to.be.an('array'));",
+                  "    if (body.bills.length > 0) {",
+                  "        pm.environment.set('bill_id', body.bills[0].billId);",
+                  "        console.log('bill_id salvo:', body.bills[0].billId);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-consent-id", "value": "{{consent_id}}" }
+            ],
+            "url": {
+              "raw": "{{credit_card_service_url}}/open-finance/v1/credit-cards-accounts/{{card_account_id}}/bills",
+              "host": ["{{credit_card_service_url}}"],
+              "path": ["open-finance", "v1", "credit-cards-accounts", "{{card_account_id}}", "bills"]
+            },
+            "description": "Lista faturas (faturas) do cartão ordenadas por vencimento decrescente. Inclui valor total, mínimo e status."
+          }
+        },
+        {
+          "name": "Transações da Fatura",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Retorna lista de transações', () => pm.expect(body.transactions).to.be.an('array'));",
+                  "    body.transactions.forEach(t => {",
+                  "        pm.test('Transação tem nome e valor', () => {",
+                  "            pm.expect(t.transactionName).to.be.a('string');",
+                  "            pm.expect(t.amount).to.be.a('number');",
+                  "        });",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-consent-id", "value": "{{consent_id}}" }
+            ],
+            "url": {
+              "raw": "{{credit_card_service_url}}/open-finance/v1/credit-cards-accounts/{{card_account_id}}/bills/{{bill_id}}/transactions",
+              "host": ["{{credit_card_service_url}}"],
+              "path": ["open-finance", "v1", "credit-cards-accounts", "{{card_account_id}}", "bills", "{{bill_id}}", "transactions"]
+            },
+            "description": "Transações individuais de uma fatura. Inclui nome do estabelecimento, tipo, MCC, valor e moeda."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Investment Service — Renda Fixa",
+      "description": "Investimentos de renda fixa: CDB, LCI, LCA, CRI, CRA, Debêntures, LF.\n\nBase: {{investment_service_url}}\nPermissão: INVESTMENTS_FIXED_INCOMES_READ",
+      "item": [
+        {
+          "name": "Listar Renda Fixa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Retorna lista de investimentos', () => pm.expect(body.investments).to.be.an('array'));",
+                  "if (body.investments.length > 0) {",
+                  "    pm.environment.set('investment_id', body.investments[0].investmentId);",
+                  "    console.log('investment_id salvo:', body.investments[0].investmentId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/fixed-incomes?userId={{user_id}}",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "fixed-incomes"],
+              "query": [{ "key": "userId", "value": "{{user_id}}" }]
+            },
+            "description": "Posições de renda fixa: produto, emissor, vencimento e valor bruto."
+          }
+        },
+        {
+          "name": "Detalhe da Posição de Renda Fixa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Possui indexador', () => pm.expect(body.indexer).to.be.a('string'));",
+                  "    pm.test('Possui tipo de remuneração', () => pm.expect(body.remunerationType).to.be.a('string'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/fixed-incomes/{{investment_id}}",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "fixed-incomes", "{{investment_id}}"]
+            },
+            "description": "Detalhes completos: ISIN, emissor, taxa (pré/pós/híbrida), indexador, isenção fiscal."
+          }
+        },
+        {
+          "name": "Saldo Atualizado (Marcação a Mercado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Valor bruto > 0', () => pm.expect(body.grossAmount).to.be.above(0));",
+                  "    pm.test('Valor líquido = bruto - IR - IOF', () => {",
+                  "        pm.expect(body.netAmount).to.be.closeTo(body.grossAmount - body.incomeTax - body.iofTax, 0.01);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/fixed-incomes/{{investment_id}}/balances",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "fixed-incomes", "{{investment_id}}", "balances"]
+            },
+            "description": "Saldo atualizado: bruto, IR, IOF, líquido, yield e preço unitário atualizado."
+          }
+        },
+        {
+          "name": "Movimentações da Posição (Renda Fixa)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 400 ou 404', () => pm.expect([200, 400, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Retorna transações', () => pm.expect(body.transactions).to.be.an('array'));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/fixed-incomes/{{investment_id}}/transactions?from=2024-01-01&to=2026-12-31",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "fixed-incomes", "{{investment_id}}", "transactions"],
+              "query": [
+                { "key": "from", "value": "2024-01-01" },
+                { "key": "to", "value": "2026-12-31" }
+              ]
+            },
+            "description": "Movimentações: compra, resgate, pagamento de juros."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Investment Service — Renda Variável",
+      "description": "Investimentos de renda variável: Ações, FIA, BDR, ETF, FII.\n\nBase: {{investment_service_url}}\nPermissão: INVESTMENTS_VARIABLE_INCOMES_READ",
+      "item": [
+        {
+          "name": "Listar Renda Variável",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Retorna lista de ativos', () => pm.expect(body.investments).to.be.an('array'));",
+                  "if (body.investments.length > 0) {",
+                  "    pm.environment.set('investment_id', body.investments[0].investmentId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/variable-incomes?userId={{user_id}}",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "variable-incomes"],
+              "query": [{ "key": "userId", "value": "{{user_id}}" }]
+            },
+            "description": "Posições de renda variável: ticker, produto, quantidade e valor bruto."
+          }
+        },
+        {
+          "name": "Detalhe da Posição (Renda Variável)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Possui ticker', () => pm.expect(body.ticker).to.be.a('string'));",
+                  "    pm.test('IR calculado corretamente (15% do lucro)', () => {",
+                  "        const profit = (body.currentPrice - body.averagePrice) * body.quantity;",
+                  "        if (profit > 0) {",
+                  "            pm.expect(body.incomeTax).to.be.closeTo(profit * 0.15, 0.01);",
+                  "        } else {",
+                  "            pm.expect(body.incomeTax).to.eql(0);",
+                  "        }",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/variable-incomes/{{investment_id}}",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "variable-incomes", "{{investment_id}}"]
+            },
+            "description": "Detalhes: ticker, ISIN, preço médio, preço atual, IR 15% sobre lucro."
+          }
+        },
+        {
+          "name": "Saldo e Rentabilidade (Renda Variável)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/variable-incomes/{{investment_id}}/balances",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "variable-incomes", "{{investment_id}}", "balances"]
+            },
+            "description": "Saldo atual: quantidade, preço unitário, bruto, líquido, IR e % rentabilidade."
+          }
+        },
+        {
+          "name": "Movimentações (Renda Variável)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/variable-incomes/{{investment_id}}/transactions?from=2024-01-01&to=2026-12-31",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "variable-incomes", "{{investment_id}}", "transactions"],
+              "query": [
+                { "key": "from", "value": "2024-01-01" },
+                { "key": "to", "value": "2026-12-31" }
+              ]
+            },
+            "description": "Movimentações: compra, venda, dividendos, JCP, subscrição, desdobramento."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Investment Service — Tesouro Direto",
+      "description": "Títulos do Tesouro Direto (Tesouro Selic, IPCA+, Prefixado).\n\nBase: {{investment_service_url}}\nPermissão: INVESTMENTS_TREASURE_TITLES_READ",
+      "item": [
+        {
+          "name": "Listar Tesouro Direto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Retorna títulos', () => pm.expect(body.bonds).to.be.an('array'));",
+                  "if (body.bonds.length > 0) {",
+                  "    pm.environment.set('investment_id', body.bonds[0].investmentId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/treasure-titles?userId={{user_id}}",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "treasure-titles"],
+              "query": [{ "key": "userId", "value": "{{user_id}}" }]
+            },
+            "description": "Posições em Tesouro Direto: nome, tipo, vencimento, valor investido e valor atual."
+          }
+        },
+        {
+          "name": "Detalhe do Título (Tesouro Direto)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Possui preço nominal', () => pm.expect(body.nominalUnitPrice).to.be.a('number'));",
+                  "    pm.test('Possui preço atualizado', () => pm.expect(body.updatedUnitPrice).to.be.a('number'));",
+                  "    pm.test('IR + IOF = bruto - líquido', () => {",
+                  "        pm.expect(body.netAmount).to.be.closeTo(body.grossAmount - body.incomeTax - body.iofTax, 0.01);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/treasure-titles/{{investment_id}}",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "treasure-titles", "{{investment_id}}"]
+            },
+            "description": "Detalhes do título: quantidade nominal, PU nominal, PU atualizado, IR regressivo, IOF."
+          }
+        },
+        {
+          "name": "Saldo e Rentabilidade (Tesouro Direto)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 ou 404', () => pm.expect([200, 404]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Valor líquido = bruto - IR - IOF', () => {",
+                  "        pm.expect(body.netAmount).to.be.closeTo(body.grossAmount - body.incomeTax - body.iofTax, 0.01);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-consent-id", "value": "{{consent_id}}" }],
+            "url": {
+              "raw": "{{investment_service_url}}/open-finance/v1/investments/treasure-titles/{{investment_id}}/balances",
+              "host": ["{{investment_service_url}}"],
+              "path": ["open-finance", "v1", "investments", "treasure-titles", "{{investment_id}}", "balances"]
+            },
+            "description": "Saldo do Tesouro Direto: bruto, IR (tabela regressiva 22.5%→15%), IOF, líquido e rentabilidade acumulada."
           }
         }
       ]
