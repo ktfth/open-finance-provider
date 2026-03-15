@@ -81,7 +81,8 @@ public class TreasuryBondInvestment : Entity
 
     private decimal GetIncomeTaxRate()
     {
-        var days = (DateOnly.FromDateTime(DateTime.UtcNow) - PurchaseDate).Days;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var days = today.DayNumber - PurchaseDate.DayNumber;
         return days switch
         {
             <= 180 => 0.225m,
