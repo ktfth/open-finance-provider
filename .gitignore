@@ -43,3 +43,4 @@ Desktop.ini
 ## Environment / Secrets
 *.env
 appsettings.*.local.json
+appsettings.Development.json

@@ -3,6 +3,7 @@ using Moq;
 using OpenFinance.InvestmentService.Application.UseCases;
 using OpenFinance.InvestmentService.Domain.Entities;
 using OpenFinance.InvestmentService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 
 namespace OpenFinance.InvestmentService.Tests.Application;
@@ -10,10 +11,16 @@ namespace OpenFinance.InvestmentService.Tests.Application;
 public class GetTreasuryBondsUseCaseTests
 {
     private readonly Mock<IInvestmentRepository> _repository = new();
+    private readonly Mock<IConsentValidator> _consentValidator = new();
     private readonly GetTreasuryBondsUseCase _sut;
 
-    public GetTreasuryBondsUseCaseTests() =>
-        _sut = new GetTreasuryBondsUseCase(_repository.Object);
+    public GetTreasuryBondsUseCaseTests()
+    {
+        _consentValidator
+            .Setup(v => v.ValidateAsync(It.IsAny<Guid>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ConsentValidationResult.Valid());
+        _sut = new GetTreasuryBondsUseCase(_repository.Object, _consentValidator.Object);
+    }
 
     private static TreasuryBondInvestment ValidBond(string userId = "user-1") =>
         TreasuryBondInvestment.Create(

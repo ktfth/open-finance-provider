@@ -25,8 +25,10 @@ public class PaymentDbContext(DbContextOptions<PaymentDbContext> options) : DbCo
             b.Property(p => p.Status).HasConversion<string>().HasMaxLength(20);
             b.Property(p => p.CompletedAt);
             b.Property(p => p.FailureReason).HasMaxLength(512);
+            b.Property(p => p.IdempotencyKey).HasMaxLength(128);
             b.HasIndex(p => p.ConsentId);
             b.HasIndex(p => p.Status);
+            b.HasIndex(p => p.IdempotencyKey).IsUnique().HasFilter("[IdempotencyKey] IS NOT NULL");
         });
     }
 }

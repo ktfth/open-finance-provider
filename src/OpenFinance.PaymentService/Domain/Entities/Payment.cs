@@ -16,7 +16,8 @@ public class Payment : Entity
         decimal amount,
         string currency,
         string description,
-        PaymentType type)
+        PaymentType type,
+        string? idempotencyKey = null)
     {
         if (amount <= 0)
             throw new ArgumentException("Amount must be positive.", nameof(amount));
@@ -35,7 +36,8 @@ public class Payment : Entity
             Currency = currency,
             Description = description,
             Type = type,
-            Status = PaymentStatus.Pending
+            Status = PaymentStatus.Pending,
+            IdempotencyKey = idempotencyKey
         };
     }
 
@@ -51,6 +53,7 @@ public class Payment : Entity
     public PaymentStatus Status { get; private set; }
     public DateTime? CompletedAt { get; private set; }
     public string? FailureReason { get; private set; }
+    public string? IdempotencyKey { get; private set; }
 
     public void MarkProcessing()
     {

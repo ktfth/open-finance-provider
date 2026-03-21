@@ -3,6 +3,7 @@ using Moq;
 using OpenFinance.CreditCardService.Application.UseCases;
 using OpenFinance.CreditCardService.Domain.Entities;
 using OpenFinance.CreditCardService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 
 namespace OpenFinance.CreditCardService.Tests.Application;
@@ -10,10 +11,16 @@ namespace OpenFinance.CreditCardService.Tests.Application;
 public class GetCardLimitsUseCaseTests
 {
     private readonly Mock<ICardRepository> _repository = new();
+    private readonly Mock<IConsentValidator> _consentValidator = new();
     private readonly GetCardLimitsUseCase _sut;
 
-    public GetCardLimitsUseCaseTests() =>
-        _sut = new GetCardLimitsUseCase(_repository.Object);
+    public GetCardLimitsUseCaseTests()
+    {
+        _consentValidator
+            .Setup(v => v.ValidateAsync(It.IsAny<Guid>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ConsentValidationResult.Valid());
+        _sut = new GetCardLimitsUseCase(_repository.Object, _consentValidator.Object);
+    }
 
     private static CardAccount MakeCard() =>
         CardAccount.Create("user-1", "4321", CardBrand.Visa, CardType.Credit,
@@ -52,5 +59,18 @@ public class GetCardLimitsUseCaseTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenConsentServiceUnavailable_ShouldReturnFailure()
+    {
+        _consentValidator
+            .Setup(v => v.ValidateAsync(It.IsAny<Guid>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ConsentValidationResult.ServiceUnavailable("CONSENT_SERVICE_UNAVAILABLE: timeout"));
+
+        var result = await _sut.ExecuteAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Contain("CONSENT_SERVICE_UNAVAILABLE");
     }
 }

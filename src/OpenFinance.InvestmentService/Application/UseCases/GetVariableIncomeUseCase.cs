@@ -1,14 +1,20 @@
 using OpenFinance.InvestmentService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 using OpenFinance.Shared.Results;
 
 namespace OpenFinance.InvestmentService.Application.UseCases;
 
-public sealed class GetVariableIncomeUseCase(IInvestmentRepository repository)
+public sealed class GetVariableIncomeUseCase(IInvestmentRepository repository, IConsentValidator consentValidator)
 {
     public async Task<Result<VariableIncomeListResponse>> ExecuteAsync(
         string userId, Guid consentId, CancellationToken ct = default)
     {
+        var validation = await consentValidator.ValidateAsync(
+            consentId, [OpenFinancePermissions.InvestmentsRead], ct);
+        if (!validation.IsValid)
+            return Result.Failure<VariableIncomeListResponse>(validation.ErrorMessage!);
+
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
         var investments = await repository.GetVariableIncomeByUserIdAsync(userId, ct);

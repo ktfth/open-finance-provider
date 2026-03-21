@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using OpenFinance.ConsentService.Application.UseCases;
 using OpenFinance.ConsentService.Domain.Entities;
@@ -13,7 +14,7 @@ public class RevokeConsentUseCaseTests
     private readonly RevokeConsentUseCase _sut;
 
     public RevokeConsentUseCaseTests() =>
-        _sut = new RevokeConsentUseCase(_repository.Object);
+        _sut = new RevokeConsentUseCase(_repository.Object, NullLogger<RevokeConsentUseCase>.Instance);
 
     private static Consent AuthorisedConsent()
     {

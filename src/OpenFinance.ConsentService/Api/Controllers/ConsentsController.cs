@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenFinance.ConsentService.Application.UseCases;
 using OpenFinance.Shared.Contracts;
+using OpenFinance.Shared.Infrastructure;
 
 namespace OpenFinance.ConsentService.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("open-finance/v1/consents")]
 [Produces("application/json")]
 public class ConsentsController(
@@ -20,7 +23,7 @@ public class ConsentsController(
     {
         var result = await createConsent.ExecuteAsync(request, ct);
         if (result.IsFailure)
-            return BadRequest(new { error = result.Error });
+            return result.Error!.ToErrorResponse();
 
         return CreatedAtAction(nameof(GetById), new { id = result.Value.ConsentId }, result.Value);
     }
@@ -32,7 +35,7 @@ public class ConsentsController(
     {
         var result = await getConsent.ExecuteAsync(id, ct);
         if (result.IsFailure)
-            return StatusCode(500, new { error = result.Error });
+            return result.Error!.ToErrorResponse();
 
         return result.Value is null ? NotFound() : Ok(result.Value);
     }
@@ -45,14 +48,13 @@ public class ConsentsController(
     {
         var result = await revokeConsent.ExecuteAsync(id, request.Reason, ct);
         if (result.IsFailure)
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.Error!.ToErrorResponse();
 
         return NoContent();
     }
 
     [HttpGet("{id:guid}/validate")]
+    [AllowAnonymous] // Inter-service endpoint: called by HttpConsentValidator without user JWT
     [ProducesResponseType<ConsentValidationResponse>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Validate(
         Guid id,
@@ -64,5 +66,8 @@ public class ConsentsController(
     }
 }
 
-public record RevokeRequest(string Reason);
+public record RevokeRequest(
+    [property: System.ComponentModel.DataAnnotations.Required]
+    [property: System.ComponentModel.DataAnnotations.StringLength(500, MinimumLength = 1)]
+    string Reason);
 public record ConsentValidationResponse(bool IsValid);

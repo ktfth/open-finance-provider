@@ -14,6 +14,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+    networks:
+      - openfinance
 
   consent-service:
     build:
@@ -21,12 +23,15 @@ services:
       dockerfile: src/OpenFinance.ConsentService/Dockerfile
     environment:
       ConnectionStrings__ConsentDb: "Server=sqlserver;Database=OpenFinanceConsent;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
       ASPNETCORE_ENVIRONMENT: Development
     ports:
       - "5001:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
+    networks:
+      - openfinance
 
   account-service:
     build:
@@ -34,12 +39,18 @@ services:
       dockerfile: src/OpenFinance.AccountService/Dockerfile
     environment:
       ConnectionStrings__AccountDb: "Server=sqlserver;Database=OpenFinanceAccount;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
       ASPNETCORE_ENVIRONMENT: Development
     ports:
       - "5002:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
 
   payment-service:
     build:
@@ -47,12 +58,18 @@ services:
       dockerfile: src/OpenFinance.PaymentService/Dockerfile
     environment:
       ConnectionStrings__PaymentDb: "Server=sqlserver;Database=OpenFinancePayment;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
       ASPNETCORE_ENVIRONMENT: Development
     ports:
       - "5003:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
 
   credit-card-service:
     build:
@@ -60,12 +77,18 @@ services:
       dockerfile: src/OpenFinance.CreditCardService/Dockerfile
     environment:
       ConnectionStrings__CardDb: "Server=sqlserver;Database=OpenFinanceCreditCard;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
       ASPNETCORE_ENVIRONMENT: Development
     ports:
       - "5004:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
 
   investment-service:
     build:
@@ -73,12 +96,155 @@ services:
       dockerfile: src/OpenFinance.InvestmentService/Dockerfile
     environment:
       ConnectionStrings__InvestmentDb: "Server=sqlserver;Database=OpenFinanceInvestment;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
       ASPNETCORE_ENVIRONMENT: Development
     ports:
       - "5005:8080"
     depends_on:
       sqlserver:
         condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
+
+  customer-service:
+    build:
+      context: .
+      dockerfile: src/OpenFinance.CustomerService/Dockerfile
+    environment:
+      ConnectionStrings__CustomerDb: "Server=sqlserver;Database=OpenFinanceCustomer;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5006:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
+
+  loan-service:
+    build:
+      context: .
+      dockerfile: src/OpenFinance.LoanService/Dockerfile
+    environment:
+      ConnectionStrings__LoanDb: "Server=sqlserver;Database=OpenFinanceLoan;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5007:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
+
+  resources-service:
+    build:
+      context: .
+      dockerfile: src/OpenFinance.ResourcesService/Dockerfile
+    environment:
+      ConnectionStrings__ResourcesDb: "Server=sqlserver;Database=OpenFinanceResources;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5008:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
+
+  insurance-service:
+    build:
+      context: .
+      dockerfile: src/OpenFinance.InsuranceService/Dockerfile
+    environment:
+      ConnectionStrings__InsuranceDb: "Server=sqlserver;Database=OpenFinanceInsurance;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5009:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
+
+  pension-service:
+    build:
+      context: .
+      dockerfile: src/OpenFinance.PensionService/Dockerfile
+    environment:
+      ConnectionStrings__PensionDb: "Server=sqlserver;Database=OpenFinancePension;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5010:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
+
+  exchange-service:
+    build:
+      context: .
+      dockerfile: src/OpenFinance.ExchangeService/Dockerfile
+    environment:
+      ConnectionStrings__ExchangeDb: "Server=sqlserver;Database=OpenFinanceExchange;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5011:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
+
+  capitalization-service:
+    build:
+      context: .
+      dockerfile: src/OpenFinance.CapitalizationService/Dockerfile
+    environment:
+      ConnectionStrings__CapitalizationDb: "Server=sqlserver;Database=OpenFinanceCapitalization;User Id=sa;Password=OpenFinance@123;TrustServerCertificate=True;"
+      ConsentService__BaseUrl: "http://consent-service:8080"
+      Authentication__SigningKey: "DevOnlySigningKey-AtLeast32Characters-ChangeInProduction!"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5012:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      consent-service:
+        condition: service_started
+    networks:
+      - openfinance
 
 volumes:
   sqldata:
+
+networks:
+  openfinance:
+    driver: bridge

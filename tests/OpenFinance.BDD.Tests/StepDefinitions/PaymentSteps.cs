@@ -1,7 +1,10 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using OpenFinance.BDD.Tests.Support;
 using OpenFinance.PaymentService.Application.UseCases;
 using OpenFinance.PaymentService.Domain.Entities;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 using OpenFinance.Shared.Results;
 using TechTalk.SpecFlow;
@@ -29,8 +32,13 @@ public class PaymentSteps
     [BeforeScenario]
     public void Setup()
     {
-        _initiateUseCase = new InitiatePaymentUseCase(_repository);
-        _cancelUseCase = new CancelPaymentUseCase(_repository);
+        var consentValidator = new Mock<IConsentValidator>();
+        consentValidator
+            .Setup(v => v.ValidateAsync(It.IsAny<Guid>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ConsentValidationResult.Valid());
+
+        _initiateUseCase = new InitiatePaymentUseCase(_repository, consentValidator.Object, NullLogger<InitiatePaymentUseCase>.Instance);
+        _cancelUseCase = new CancelPaymentUseCase(_repository, consentValidator.Object, NullLogger<CancelPaymentUseCase>.Instance);
     }
 
     [Given("the payment service is available")]
@@ -119,7 +127,7 @@ public class PaymentSteps
     [When(@"I cancel the payment with reason ""(.*)""")]
     public async Task WhenICancelPaymentWithReason(string reason)
     {
-        _cancelResult = await _cancelUseCase.ExecuteAsync(_currentPayment!.Id, reason);
+        _cancelResult = await _cancelUseCase.ExecuteAsync(Guid.NewGuid(), _currentPayment!.Id, reason);
         _currentPayment = await _repository.GetByIdAsync(_currentPayment.Id);
     }
 

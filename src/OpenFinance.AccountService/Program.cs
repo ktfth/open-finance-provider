@@ -2,22 +2,44 @@ using Microsoft.EntityFrameworkCore;
 using OpenFinance.AccountService.Application.UseCases;
 using OpenFinance.AccountService.Domain.Repositories;
 using OpenFinance.AccountService.Infrastructure.Persistence;
+using OpenFinance.Shared.Consent;
+using OpenFinance.Shared.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers()
-    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+// Structured logging
+builder.AddOpenFinanceSerilog("AccountService");
+
+// Shared infrastructure (controllers, health checks, rate limiting, CORS, exception handler)
+builder.Services.AddOpenFinanceInfrastructure(builder.Configuration);
+
+// Authentication
+builder.Services.AddOpenFinanceAuth(builder.Configuration);
+
+// Distributed tracing
+builder.Services.AddOpenFinanceTracing("AccountService", builder.Configuration);
+
+// Swagger (per-service, Swashbuckle dependency)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "OpenFinance Account Service", Version = "v1" });
 });
 
+// Database
 builder.Services.AddDbContext<AccountDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("AccountDb"),
         sql => sql.EnableRetryOnFailure(3)));
 
+builder.Services.AddDatabaseHealthCheck<AccountDbContext>();
+
+// Consent validation
+builder.Services.AddConsentValidator(
+    builder.Configuration["ConsentService:BaseUrl"]
+    ?? throw new InvalidOperationException("Configuration 'ConsentService:BaseUrl' is required."));
+
+// DI registrations
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<GetAccountsUseCase>();
 builder.Services.AddScoped<GetAccountDetailsUseCase>();
@@ -26,21 +48,26 @@ builder.Services.AddScoped<GetTransactionsUseCase>();
 
 var app = builder.Build();
 
+// Database init
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AccountDbContext>();
-    db.Database.EnsureCreated();
+    if (app.Environment.IsDevelopment())
+        db.Database.EnsureCreated();
+    else
+        db.Database.Migrate();
     SeedDevelopmentData(db, app.Environment);
 }
 
+// Swagger (dev only)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-app.MapControllers();
+// Shared middleware pipeline (exception handler, logging, rate limiting, CORS, HTTPS, health checks, controllers)
+app.UseOpenFinanceInfrastructure();
 
 app.Run();
 

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using OpenFinance.ConsentService.Application.UseCases;
 using OpenFinance.ConsentService.Domain.Entities;
@@ -13,7 +14,7 @@ public class CreateConsentUseCaseTests
     private readonly CreateConsentUseCase _sut;
 
     public CreateConsentUseCaseTests() =>
-        _sut = new CreateConsentUseCase(_repository.Object);
+        _sut = new CreateConsentUseCase(_repository.Object, NullLogger<CreateConsentUseCase>.Instance);
 
     private static CreateConsentRequest ValidRequest() => new(
         ClientId: "bank-001",

@@ -3,12 +3,25 @@ using OpenFinance.InvestmentService.Application.UseCases;
 using OpenFinance.InvestmentService.Domain.Entities;
 using OpenFinance.InvestmentService.Domain.Repositories;
 using OpenFinance.InvestmentService.Infrastructure.Persistence;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
+using OpenFinance.Shared.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers()
-    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+// Structured logging
+builder.AddOpenFinanceSerilog("InvestmentService");
+
+// Shared infrastructure
+builder.Services.AddOpenFinanceInfrastructure(builder.Configuration);
+
+// Authentication
+builder.Services.AddOpenFinanceAuth(builder.Configuration);
+
+// Distributed tracing
+builder.Services.AddOpenFinanceTracing("InvestmentService", builder.Configuration);
+
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -50,6 +63,12 @@ builder.Services.AddDbContext<InvestmentDbContext>(options =>
         builder.Configuration.GetConnectionString("InvestmentDb"),
         sql => sql.EnableRetryOnFailure(3)));
 
+builder.Services.AddDatabaseHealthCheck<InvestmentDbContext>();
+
+builder.Services.AddConsentValidator(
+    builder.Configuration["ConsentService:BaseUrl"]
+    ?? throw new InvalidOperationException("Configuration 'ConsentService:BaseUrl' is required."));
+
 builder.Services.AddScoped<IInvestmentRepository, InvestmentRepository>();
 
 // Fixed Income use cases
@@ -74,7 +93,10 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<InvestmentDbContext>();
-    db.Database.EnsureCreated();
+    if (app.Environment.IsDevelopment())
+        db.Database.EnsureCreated();
+    else
+        db.Database.Migrate();
     SeedDevelopmentData(db, app.Environment);
 }
 
@@ -88,8 +110,9 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
-app.MapControllers();
+// Shared pipeline
+app.UseOpenFinanceInfrastructure();
+
 app.Run();
 
 static void SeedDevelopmentData(InvestmentDbContext db, IWebHostEnvironment env)

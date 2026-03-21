@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using OpenFinance.BDD.Tests.Support;
 using OpenFinance.ConsentService.Application.UseCases;
 using OpenFinance.ConsentService.Domain.Entities;
@@ -27,8 +28,8 @@ public class ConsentSteps
     [BeforeScenario]
     public void Setup()
     {
-        _createUseCase = new CreateConsentUseCase(_repository);
-        _revokeUseCase = new RevokeConsentUseCase(_repository);
+        _createUseCase = new CreateConsentUseCase(_repository, NullLogger<CreateConsentUseCase>.Instance);
+        _revokeUseCase = new RevokeConsentUseCase(_repository, NullLogger<RevokeConsentUseCase>.Instance);
         _validateUseCase = new ValidateConsentUseCase(_repository);
     }
 

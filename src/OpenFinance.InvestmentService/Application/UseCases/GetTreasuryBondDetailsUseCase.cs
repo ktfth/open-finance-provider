@@ -1,14 +1,20 @@
 using OpenFinance.InvestmentService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 using OpenFinance.Shared.Results;
 
 namespace OpenFinance.InvestmentService.Application.UseCases;
 
-public sealed class GetTreasuryBondDetailsUseCase(IInvestmentRepository repository)
+public sealed class GetTreasuryBondDetailsUseCase(IInvestmentRepository repository, IConsentValidator consentValidator)
 {
     public async Task<Result<TreasuryBondDetailsResponse?>> ExecuteAsync(
         Guid investmentId, Guid consentId, CancellationToken ct = default)
     {
+        var validation = await consentValidator.ValidateAsync(
+            consentId, [OpenFinancePermissions.InvestmentsRead], ct);
+        if (!validation.IsValid)
+            return Result.Failure<TreasuryBondDetailsResponse?>(validation.ErrorMessage!);
+
         var bond = await repository.GetTreasuryBondByIdAsync(investmentId, ct);
         if (bond is null)
             return Result.Success<TreasuryBondDetailsResponse?>(null);

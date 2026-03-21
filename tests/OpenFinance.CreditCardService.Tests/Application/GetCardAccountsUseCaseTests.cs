@@ -3,6 +3,7 @@ using Moq;
 using OpenFinance.CreditCardService.Application.UseCases;
 using OpenFinance.CreditCardService.Domain.Entities;
 using OpenFinance.CreditCardService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 
 namespace OpenFinance.CreditCardService.Tests.Application;
@@ -10,10 +11,16 @@ namespace OpenFinance.CreditCardService.Tests.Application;
 public class GetCardAccountsUseCaseTests
 {
     private readonly Mock<ICardRepository> _repository = new();
+    private readonly Mock<IConsentValidator> _consentValidator = new();
     private readonly GetCardAccountsUseCase _sut;
 
-    public GetCardAccountsUseCaseTests() =>
-        _sut = new GetCardAccountsUseCase(_repository.Object);
+    public GetCardAccountsUseCaseTests()
+    {
+        _consentValidator
+            .Setup(v => v.ValidateAsync(It.IsAny<Guid>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ConsentValidationResult.Valid());
+        _sut = new GetCardAccountsUseCase(_repository.Object, _consentValidator.Object);
+    }
 
     private static CardAccount MakeCard(string userId = "user-1") =>
         CardAccount.Create(userId, "4321", CardBrand.Visa, CardType.Credit,
@@ -59,5 +66,18 @@ public class GetCardAccountsUseCaseTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.CardAccounts.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenConsentInvalid_ShouldReturnFailure()
+    {
+        _consentValidator
+            .Setup(v => v.ValidateAsync(It.IsAny<Guid>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ConsentValidationResult.InvalidConsent("Consent is not active."));
+
+        var result = await _sut.ExecuteAsync("user-1", Guid.NewGuid());
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Contain("Consent is not active.");
     }
 }

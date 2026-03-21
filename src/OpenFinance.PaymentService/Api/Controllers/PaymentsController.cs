@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenFinance.PaymentService.Application.UseCases;
 using OpenFinance.Shared.Contracts;
+using OpenFinance.Shared.Infrastructure;
 
 namespace OpenFinance.PaymentService.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("open-finance/v1/payments")]
 [Produces("application/json")]
 public class PaymentsController(
@@ -15,38 +18,59 @@ public class PaymentsController(
     [HttpPost]
     [ProducesResponseType<PaymentResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Initiate([FromBody] InitiatePaymentRequest request, CancellationToken ct)
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Initiate(
+        [FromBody] InitiatePaymentRequest request,
+        [FromHeader(Name = "x-idempotency-key")] string? idempotencyKey,
+        CancellationToken ct)
     {
-        var result = await initiatePayment.ExecuteAsync(request, ct);
+        var result = await initiatePayment.ExecuteAsync(request, idempotencyKey, ct);
         if (result.IsFailure)
-            return BadRequest(new { error = result.Error });
+            return result.Error!.ToErrorResponse();
 
         return CreatedAtAction(nameof(GetStatus), new { paymentId = result.Value.PaymentId }, result.Value);
     }
 
     [HttpGet("{paymentId:guid}")]
     [ProducesResponseType<PaymentResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetStatus(Guid paymentId, CancellationToken ct)
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> GetStatus(
+        Guid paymentId,
+        [FromHeader(Name = "x-consent-id")] Guid consentId,
+        CancellationToken ct)
     {
-        var result = await getPaymentStatus.ExecuteAsync(paymentId, ct);
+        var result = await getPaymentStatus.ExecuteAsync(consentId, paymentId, ct);
+        if (result.IsFailure)
+            return result.Error!.ToErrorResponse();
+
         return result.Value is null ? NotFound() : Ok(result.Value);
     }
 
     [HttpDelete("{paymentId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Cancel(Guid paymentId, [FromBody] CancelPaymentRequest request, CancellationToken ct)
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Cancel(
+        Guid paymentId,
+        [FromHeader(Name = "x-consent-id")] Guid consentId,
+        [FromBody] CancelPaymentRequest request,
+        CancellationToken ct)
     {
-        var result = await cancelPayment.ExecuteAsync(paymentId, request.Reason, ct);
+        var result = await cancelPayment.ExecuteAsync(consentId, paymentId, request.Reason, ct);
         if (result.IsFailure)
-            return result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                ? NotFound(new { error = result.Error })
-                : BadRequest(new { error = result.Error });
+            return result.Error!.ToErrorResponse();
 
         return NoContent();
     }
 }
 
-public record CancelPaymentRequest(string Reason);
+public record CancelPaymentRequest(
+    [property: System.ComponentModel.DataAnnotations.Required]
+    [property: System.ComponentModel.DataAnnotations.StringLength(500, MinimumLength = 1)]
+    string Reason);

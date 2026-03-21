@@ -1,10 +1,11 @@
 using OpenFinance.CreditCardService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 using OpenFinance.Shared.Results;
 
 namespace OpenFinance.CreditCardService.Application.UseCases;
 
-public sealed class GetCardBillTransactionsUseCase(ICardRepository repository)
+public sealed class GetCardBillTransactionsUseCase(ICardRepository repository, IConsentValidator consentValidator)
 {
     public async Task<Result<CardBillTransactionListResponse>> ExecuteAsync(
         Guid cardAccountId,
@@ -12,6 +13,11 @@ public sealed class GetCardBillTransactionsUseCase(ICardRepository repository)
         Guid consentId,
         CancellationToken ct = default)
     {
+        var validation = await consentValidator.ValidateAsync(
+            consentId, [OpenFinancePermissions.CreditCardsAccountsBillsTransactionsRead], ct);
+        if (!validation.IsValid)
+            return Result.Failure<CardBillTransactionListResponse>(validation.ErrorMessage!);
+
         var account = await repository.GetCardAccountByIdAsync(cardAccountId, ct);
         if (account is null)
             return Result.Failure<CardBillTransactionListResponse>($"Card account {cardAccountId} not found.");

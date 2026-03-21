@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenFinance.InvestmentService.Application.UseCases;
 using OpenFinance.Shared.Contracts;
+using OpenFinance.Shared.Infrastructure;
 
 namespace OpenFinance.InvestmentService.Api.Controllers;
 
@@ -10,6 +12,7 @@ namespace OpenFinance.InvestmentService.Api.Controllers;
 /// Requires permission: INVESTMENTS_FIXED_INCOMES_READ
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("open-finance/v1/investments/fixed-incomes")]
 [Produces("application/json")]
 public class FixedIncomeController(
@@ -23,12 +26,15 @@ public class FixedIncomeController(
     /// </summary>
     [HttpGet]
     [ProducesResponseType<FixedIncomeListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetFixedIncome(
         [FromQuery] string userId,
         [FromHeader(Name = "x-consent-id")] Guid consentId,
         CancellationToken ct)
     {
         var result = await getFixedIncome.ExecuteAsync(userId, consentId, ct);
+        if (result.IsFailure)
+            return result.Error!.ToErrorResponse();
         return Ok(result.Value);
     }
 
@@ -38,6 +44,7 @@ public class FixedIncomeController(
     /// </summary>
     [HttpGet("{investmentId:guid}")]
     [ProducesResponseType<FixedIncomeDetailsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetFixedIncomeDetails(
         Guid investmentId,
@@ -45,6 +52,8 @@ public class FixedIncomeController(
         CancellationToken ct)
     {
         var result = await getFixedIncomeDetails.ExecuteAsync(investmentId, consentId, ct);
+        if (result.IsFailure)
+            return result.Error!.ToErrorResponse();
         return result.Value is null ? NotFound() : Ok(result.Value);
     }
 
@@ -54,6 +63,7 @@ public class FixedIncomeController(
     /// </summary>
     [HttpGet("{investmentId:guid}/balances")]
     [ProducesResponseType<FixedIncomeBalanceResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetFixedIncomeBalance(
         Guid investmentId,
@@ -61,6 +71,8 @@ public class FixedIncomeController(
         CancellationToken ct)
     {
         var result = await getFixedIncomeBalance.ExecuteAsync(investmentId, consentId, ct);
+        if (result.IsFailure)
+            return result.Error!.ToErrorResponse();
         return result.Value is null ? NotFound() : Ok(result.Value);
     }
 
@@ -71,6 +83,7 @@ public class FixedIncomeController(
     [HttpGet("{investmentId:guid}/transactions")]
     [ProducesResponseType<FixedIncomeTransactionListResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetFixedIncomeTransactions(
         Guid investmentId,
@@ -80,7 +93,8 @@ public class FixedIncomeController(
         CancellationToken ct)
     {
         var result = await getFixedIncomeTransactions.ExecuteAsync(investmentId, consentId, from, to, ct);
-        if (result.IsFailure) return BadRequest(new { error = result.Error });
+        if (result.IsFailure)
+            return result.Error!.ToErrorResponse();
         return Ok(result.Value);
     }
 }

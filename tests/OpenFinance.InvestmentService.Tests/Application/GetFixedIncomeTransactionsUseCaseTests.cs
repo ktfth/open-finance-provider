@@ -3,6 +3,7 @@ using Moq;
 using OpenFinance.InvestmentService.Application.UseCases;
 using OpenFinance.InvestmentService.Domain.Entities;
 using OpenFinance.InvestmentService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 
 namespace OpenFinance.InvestmentService.Tests.Application;
@@ -10,10 +11,16 @@ namespace OpenFinance.InvestmentService.Tests.Application;
 public class GetFixedIncomeTransactionsUseCaseTests
 {
     private readonly Mock<IInvestmentRepository> _repository = new();
+    private readonly Mock<IConsentValidator> _consentValidator = new();
     private readonly GetFixedIncomeTransactionsUseCase _sut;
 
-    public GetFixedIncomeTransactionsUseCaseTests() =>
-        _sut = new GetFixedIncomeTransactionsUseCase(_repository.Object);
+    public GetFixedIncomeTransactionsUseCaseTests()
+    {
+        _consentValidator
+            .Setup(v => v.ValidateAsync(It.IsAny<Guid>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ConsentValidationResult.Valid());
+        _sut = new GetFixedIncomeTransactionsUseCase(_repository.Object, _consentValidator.Object);
+    }
 
     private static FixedIncomeInvestment ValidCDB() =>
         FixedIncomeInvestment.Create(

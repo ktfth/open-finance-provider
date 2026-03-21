@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace OpenFinance.Shared.Contracts;
 
 /// <summary>
@@ -11,15 +13,16 @@ public interface IPaymentContract
 }
 
 public record InitiatePaymentRequest(
-    Guid ConsentId,
-    string DebtorAccountId,
-    string CreditorAccountId,
-    string CreditorName,
-    string CreditorCpfCnpj,
-    decimal Amount,
-    string Currency,
-    string Description,
-    PaymentType Type
+    [Required] Guid ConsentId,
+    [Required, StringLength(20, MinimumLength = 1)] string DebtorAccountId,
+    [Required, StringLength(20, MinimumLength = 1)] string CreditorAccountId,
+    [Required, StringLength(200, MinimumLength = 1)] string CreditorName,
+    [Required, RegularExpression(@"^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}$|^\d{11}$|^\d{14}$",
+        ErrorMessage = "CreditorCpfCnpj must be a valid CPF or CNPJ.")] string CreditorCpfCnpj,
+    [Required, Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than zero.")] decimal Amount,
+    [Required, StringLength(3, MinimumLength = 3, ErrorMessage = "Currency must be a 3-letter ISO code.")] string Currency,
+    [Required, StringLength(500, MinimumLength = 1)] string Description,
+    [Required] PaymentType Type
 );
 
 public record PaymentResponse(

@@ -1,14 +1,20 @@
 using OpenFinance.InvestmentService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 using OpenFinance.Shared.Results;
 
 namespace OpenFinance.InvestmentService.Application.UseCases;
 
-public sealed class GetFixedIncomeBalanceUseCase(IInvestmentRepository repository)
+public sealed class GetFixedIncomeBalanceUseCase(IInvestmentRepository repository, IConsentValidator consentValidator)
 {
     public async Task<Result<FixedIncomeBalanceResponse?>> ExecuteAsync(
         Guid investmentId, Guid consentId, CancellationToken ct = default)
     {
+        var validation = await consentValidator.ValidateAsync(
+            consentId, [OpenFinancePermissions.InvestmentsRead], ct);
+        if (!validation.IsValid)
+            return Result.Failure<FixedIncomeBalanceResponse?>(validation.ErrorMessage!);
+
         var investment = await repository.GetFixedIncomeByIdAsync(investmentId, ct);
         if (investment is null)
             return Result.Success<FixedIncomeBalanceResponse?>(null);

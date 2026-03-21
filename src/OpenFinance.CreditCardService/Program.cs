@@ -3,12 +3,25 @@ using OpenFinance.CreditCardService.Application.UseCases;
 using OpenFinance.CreditCardService.Domain.Entities;
 using OpenFinance.CreditCardService.Domain.Repositories;
 using OpenFinance.CreditCardService.Infrastructure.Persistence;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
+using OpenFinance.Shared.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers()
-    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+// Structured logging
+builder.AddOpenFinanceSerilog("CreditCardService");
+
+// Shared infrastructure (controllers, health checks, rate limiting, CORS, exception handler)
+builder.Services.AddOpenFinanceInfrastructure(builder.Configuration);
+
+// Authentication
+builder.Services.AddOpenFinanceAuth(builder.Configuration);
+
+// Distributed tracing
+builder.Services.AddOpenFinanceTracing("CreditCardService", builder.Configuration);
+
+// Swagger (per-service, Swashbuckle dependency)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -44,11 +57,20 @@ builder.Services.AddSwaggerGen(c =>
     if (File.Exists(xmlPath)) c.IncludeXmlComments(xmlPath);
 });
 
+// Consent validation
+builder.Services.AddConsentValidator(
+    builder.Configuration["ConsentService:BaseUrl"]
+    ?? throw new InvalidOperationException("Configuration 'ConsentService:BaseUrl' is required."));
+
+// Database
 builder.Services.AddDbContext<CardDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("CardDb"),
         sql => sql.EnableRetryOnFailure(3)));
 
+builder.Services.AddDatabaseHealthCheck<CardDbContext>();
+
+// DI registrations
 builder.Services.AddScoped<ICardRepository, CardRepository>();
 builder.Services.AddScoped<GetCardAccountsUseCase>();
 builder.Services.AddScoped<GetCardAccountDetailsUseCase>();
@@ -58,13 +80,18 @@ builder.Services.AddScoped<GetCardBillTransactionsUseCase>();
 
 var app = builder.Build();
 
+// Database init
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CardDbContext>();
-    db.Database.EnsureCreated();
+    if (app.Environment.IsDevelopment())
+        db.Database.EnsureCreated();
+    else
+        db.Database.Migrate();
     SeedDevelopmentData(db, app.Environment);
 }
 
+// Swagger (dev only)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -75,8 +102,9 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
-app.MapControllers();
+// Shared middleware pipeline (exception handler, logging, rate limiting, CORS, HTTPS, health checks, controllers)
+app.UseOpenFinanceInfrastructure();
+
 app.Run();
 
 static void SeedDevelopmentData(CardDbContext db, IWebHostEnvironment env)

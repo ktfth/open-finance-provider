@@ -3,6 +3,7 @@ using Moq;
 using OpenFinance.AccountService.Application.UseCases;
 using OpenFinance.AccountService.Domain.Entities;
 using OpenFinance.AccountService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 
 namespace OpenFinance.AccountService.Tests.Application;
@@ -10,10 +11,16 @@ namespace OpenFinance.AccountService.Tests.Application;
 public class GetTransactionsUseCaseTests
 {
     private readonly Mock<IAccountRepository> _repository = new();
+    private readonly Mock<IConsentValidator> _consentValidator = new();
     private readonly GetTransactionsUseCase _sut;
 
-    public GetTransactionsUseCaseTests() =>
-        _sut = new GetTransactionsUseCase(_repository.Object);
+    public GetTransactionsUseCaseTests()
+    {
+        _consentValidator
+            .Setup(v => v.ValidateAsync(It.IsAny<Guid>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ConsentValidationResult.Valid());
+        _sut = new GetTransactionsUseCase(_repository.Object, _consentValidator.Object);
+    }
 
     private static Account ActiveAccount()
     {

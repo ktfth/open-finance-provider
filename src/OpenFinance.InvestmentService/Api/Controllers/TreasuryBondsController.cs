@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenFinance.InvestmentService.Application.UseCases;
 using OpenFinance.Shared.Contracts;
+using OpenFinance.Shared.Infrastructure;
 
 namespace OpenFinance.InvestmentService.Api.Controllers;
 
@@ -11,6 +13,7 @@ namespace OpenFinance.InvestmentService.Api.Controllers;
 /// Requires permission: INVESTMENTS_TREASURE_TITLES_READ
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("open-finance/v1/investments/treasure-titles")]
 [Produces("application/json")]
 public class TreasuryBondsController(
@@ -23,12 +26,15 @@ public class TreasuryBondsController(
     /// </summary>
     [HttpGet]
     [ProducesResponseType<TreasuryBondListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetTreasuryBonds(
         [FromQuery] string userId,
         [FromHeader(Name = "x-consent-id")] Guid consentId,
         CancellationToken ct)
     {
         var result = await getTreasuryBonds.ExecuteAsync(userId, consentId, ct);
+        if (result.IsFailure)
+            return result.Error!.ToErrorResponse();
         return Ok(result.Value);
     }
 
@@ -38,6 +44,7 @@ public class TreasuryBondsController(
     /// </summary>
     [HttpGet("{investmentId:guid}")]
     [ProducesResponseType<TreasuryBondDetailsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTreasuryBondDetails(
         Guid investmentId,
@@ -45,6 +52,8 @@ public class TreasuryBondsController(
         CancellationToken ct)
     {
         var result = await getTreasuryBondDetails.ExecuteAsync(investmentId, consentId, ct);
+        if (result.IsFailure)
+            return result.Error!.ToErrorResponse();
         return result.Value is null ? NotFound() : Ok(result.Value);
     }
 
@@ -54,6 +63,7 @@ public class TreasuryBondsController(
     /// </summary>
     [HttpGet("{investmentId:guid}/balances")]
     [ProducesResponseType<TreasuryBondBalanceResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTreasuryBondBalance(
         Guid investmentId,
@@ -61,6 +71,8 @@ public class TreasuryBondsController(
         CancellationToken ct)
     {
         var result = await getTreasuryBondBalance.ExecuteAsync(investmentId, consentId, ct);
+        if (result.IsFailure)
+            return result.Error!.ToErrorResponse();
         return result.Value is null ? NotFound() : Ok(result.Value);
     }
 }

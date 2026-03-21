@@ -1,14 +1,20 @@
 using OpenFinance.InvestmentService.Domain.Repositories;
+using OpenFinance.Shared.Consent;
 using OpenFinance.Shared.Contracts;
 using OpenFinance.Shared.Results;
 
 namespace OpenFinance.InvestmentService.Application.UseCases;
 
-public sealed class GetFixedIncomeTransactionsUseCase(IInvestmentRepository repository)
+public sealed class GetFixedIncomeTransactionsUseCase(IInvestmentRepository repository, IConsentValidator consentValidator)
 {
     public async Task<Result<FixedIncomeTransactionListResponse>> ExecuteAsync(
         Guid investmentId, Guid consentId, DateOnly from, DateOnly to, CancellationToken ct = default)
     {
+        var validation = await consentValidator.ValidateAsync(
+            consentId, [OpenFinancePermissions.InvestmentsRead], ct);
+        if (!validation.IsValid)
+            return Result.Failure<FixedIncomeTransactionListResponse>(validation.ErrorMessage!);
+
         if (from > to)
             return Result.Failure<FixedIncomeTransactionListResponse>("'from' date must be before or equal to 'to' date.");
 

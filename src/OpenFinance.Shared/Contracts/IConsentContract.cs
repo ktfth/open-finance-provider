@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace OpenFinance.Shared.Contracts;
 
 /// <summary>
@@ -12,11 +14,11 @@ public interface IConsentContract
 }
 
 public record CreateConsentRequest(
-    string ClientId,
-    string UserId,
-    string[] Permissions,
-    DateTime ExpiresAt,
-    string? RedirectUri = null
+    [Required, StringLength(100, MinimumLength = 1)] string ClientId,
+    [Required, StringLength(100, MinimumLength = 1)] string UserId,
+    [Required, MinLength(1, ErrorMessage = "At least one permission is required.")] string[] Permissions,
+    [Required] DateTime ExpiresAt,
+    [Url] string? RedirectUri = null
 );
 
 public record ConsentResponse(

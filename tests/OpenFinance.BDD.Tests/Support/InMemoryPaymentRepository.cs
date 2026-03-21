@@ -10,6 +10,9 @@ public class InMemoryPaymentRepository : IPaymentRepository
     public Task<Payment?> GetByIdAsync(Guid paymentId, CancellationToken ct = default) =>
         Task.FromResult(_store.GetValueOrDefault(paymentId));
 
+    public Task<Payment?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default) =>
+        Task.FromResult(_store.Values.FirstOrDefault(p => p.IdempotencyKey == idempotencyKey));
+
     public Task<IReadOnlyList<Payment>> GetByConsentIdAsync(Guid consentId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<Payment>>(
             _store.Values.Where(p => p.ConsentId == consentId).ToList());
